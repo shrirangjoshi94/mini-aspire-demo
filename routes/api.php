@@ -1,21 +1,27 @@
 <?php
 
-use Illuminate\Http\Request;
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application. These
+| routes are loaded by the RouteServiceProvider within a group which
+| is assigned the "api" middleware group. Enjoy building your API!
+|
+*/
 
-//Route::middleware('auth:api')->get('/user', function (Request $request) {
-//    return $request->user();
-//});
-
-Route::group(['prefix' => 'aspire', 'namespace' => 'Api'], function () {
-    
+Route::group(['prefix' => 'v1', 'namespace' => 'Api'], function () {
     Route::post('/register', 'AuthController@register');
     Route::post('/login', 'AuthController@login');
 
-//    Route::group(['middleware' => 'auth:api'], function () {
+    Route::group(['middleware' => 'auth:api'], function () {
+        Route::get('/profile', 'AuthController@profile');
 
         Route::post('/loans/create', 'LoansController@create');
         Route::get('/loans', 'LoansController@index');
         Route::get('/loans/{id}', 'LoansController@show');
 
-//    });
+        Route::post('/repayments/create', 'RepaymentsController@create');
+    });
 });

@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers\Api;
 
-use Illuminate\Http\Request;
+use App\Events\UserRegistered;
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Input;
-use App\User;
-use Illuminate\Support\Facades\DB;
+use App\Http\Resources\User as UserResource;
+use App\Models\User;
 
-class AuthController extends Controller {
-
-    public function register() {
+class AuthController extends Controller
+{
+    public function register()
+    {
         $rules = [
             'full_name' => 'required|string',
             'email' => 'required|email|unique:users,email',
@@ -19,45 +19,58 @@ class AuthController extends Controller {
 
         $response = $this->validateWithJson(request()->all(), $rules);
 
+        // if validation passes, create the user
         if ($response === true) {
-
             $data = [
                 'full_name' => request()->input('full_name'),
                 'email' => strtolower(request()->input('email')),
                 'password' => bcrypt(request()->input('password')),
                 'signup_role' => request()->input('signup_role'),
+                'signup_looking_for' => request()->input('signup_looking_for'),
+                'heard_through' => request()->input('heard_through'),
             ];
 
             try {
                 $user = User::create($data);
+                event(new UserRegistered($user));
+
                 return $this->respondWithSuccess('Registration successful.', ['user' => UserResource::make($user)]);
             } catch (\Exception $exception) {
                 return $this->respondWithError($exception->getMessage());
             }
-        } else {
-            return $this->respondWithError('Data validation failed.', $response);
         }
+
+        return $this->respondWithError('Data validation failed.', $response);
     }
 
-    public function login() {
-
+    public function login()
+    {
         $rules = [
             'email' => 'required|email',
             'password' => 'required',
         ];
 
         $response = $this->validateWithJson(request()->all(), $rules);
-        if ($response === true) {
 
-            if (User::where('email', '=', Input::get('email')) && User::where('password', '=', Input::get('password'))) {
-                $user = DB::table('users')->where('email', Input::get('email'))->first();
-                return $this->respondWithSuccess('User authenticated.', ['user_details' => (array) $user]);
-            } else {
-                return $this->respondWithError('Invalid credentials.');
+        // if validation passes, authenticate the user
+        if ($response === true) {
+            if (auth()->attempt(request()->only(['email', 'password']))) {
+                $user = auth()->user();
+                $access_token = optional($user)->createToken('MiniAspire')->accessToken;
+
+                return $this->respondWithSuccess('User authenticated.', ['access_token' => $access_token]);
             }
-        } else {
-            return $this->respondWithError('Data validation failed.', $response);
+
+            return $this->respondWithError('Invalid credentials.');
         }
+
+        return $this->respondWithError('Data validation failed.', $response);
     }
 
+    public function profile()
+    {
+        $user = auth()->user();
+
+        return $this->respondWithSuccess('User profile loaded.', ['user' => UserResource::make($user)]);
+    }
 }
